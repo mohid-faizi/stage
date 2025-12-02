@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -14,130 +12,153 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
 
-const signupSchema = z
-  .object({
-    name: z.string().min(1, { message: "Name is required" }),
-    email: z.string().email({ message: "Please enter a valid email address" }),
-    password: z
-      .string()
-      .min(8, { message: "Password must be at least 8 characters" }).max(32, { message: "Password must be at most 32 characters" }),
-    confirmPassword: z
-      .string()
-      .min(8, { message: "Confirm Password must be at least 8 characters" }).max(32, { message: "Confirm Password must be at most 32 characters" }),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    path: ["confirmPassword"],
-    message: "Passwords do not match",
-  });
+const ESTABLISHMENTS = [
+  "EST Casablanca",
+  "EST Fès",
+  "EST Marrakech",
+  "Other",
+];
+
+const DIPLOMAS = [
+  "DUT",
+  "Licence professionnelle",
+  "Master",
+  "Engineering",
+  "Other",
+];
+
+const CITIES_MOROCCO = [
+  "Casablanca",
+  "Rabat",
+  "Fès",
+  "Marrakech",
+  "Tangier",
+  "Agadir",
+  "Oujda",
+  "Kenitra",
+  "Tetouan",
+  "Safi",
+  "Mohammedia",
+  "Laayoune",
+  "Beni Mellal",
+  "Nador",
+  "Settat",
+  "Other",
+];
 
 export default function SignUp() {
   const [loading, setLoading] = useState(false);
-  const [globalError, setGlobalError] = useState("");
-  const [validationErrors, setValidationErrors] = useState({}); // { name?, email?, password?, confirmPassword? }
+  const [error, setError] = useState("");
 
   async function handleSignup(e) {
     e.preventDefault();
-    setGlobalError("");
-    setValidationErrors({});
-
-    const formData = new FormData(e.currentTarget);
-    const rawData = Object.fromEntries(formData.entries());
-
-    // ✅ Zod validation first
-    const result = signupSchema.safeParse(rawData);
-    if (!result.success) {
-      const fieldErrors = result.error.flatten().fieldErrors;
-
-      setValidationErrors({
-        name: fieldErrors.name?.[0],
-        email: fieldErrors.email?.[0],
-        password: fieldErrors.password?.[0],
-        confirmPassword: fieldErrors.confirmPassword?.[0],
-      });
-
-      toast.error("Please fix the highlighted errors.");
-      return;
-    }
-
-    const { name, email, password } = result.data;
-
+    setError("");
     setLoading(true);
+
     try {
+      const formData = new FormData(e.currentTarget);
+
+      const firstName = formData.get("firstName")?.toString().trim();
+      const lastName = formData.get("lastName")?.toString().trim();
+      const email = formData.get("email")?.toString().trim();
+      const studentNumber = formData.get("studentNumber")?.toString().trim();
+      const establishment =
+        formData.get("establishment")?.toString().trim() || "";
+      const diploma = formData.get("diploma")?.toString().trim() || "";
+      const city = formData.get("city")?.toString().trim() || "";
+      const password = formData.get("password")?.toString();
+      const confirmPassword = formData.get("confirmPassword")?.toString();
+
+      if (!email || !password) {
+        toast.error("Email and password are required");
+        return;
+      }
+
+      if(password.length < 8){
+        toast.error("Password must be at least 8 characters long");
+        return;
+      }
+      if (password !== confirmPassword) {
+        toast.error("Passwords do not match");
+        return;
+      }
+
+
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          studentNumber,
+          establishment,
+          diploma,
+          city,
+          password,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        const status = data?.data?.status;
-
-        if (status === "REJECTED") {
-          toast.error(
-            "This email has been rejected by the administrator and cannot be used."
-          );
-        } else if (data.message) {
-          toast.error(data.message);
-        } else {
-          toast.error("Something went wrong while creating your account.");
-        }
-
-        setGlobalError(data.message || "");
+        setError(data.message || "Something went wrong");
+        toast.error(data.message || "Something went wrong");
         return;
       }
 
-      // ✅ success
       toast.success(
-        data.message ||
-          "Request for account approval has been sent successfully."
+        "Request for account approval has been sent successfully."
       );
-      console.log("Signup success", data);
-
-      // Optional: clear form
-      e.target.reset();
+      // optional: e.currentTarget.reset();
     } catch (err) {
-      console.error("SIGNUP_CLIENT_ERROR", err);
-      setGlobalError("Unexpected error. Please try again.");
-      toast.error("Unexpected error. Please try again.");
+      console.error(err);
+      toast.error("Unexpected error");
+      setError("Unexpected error");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="h-screen w-full p-3 flex flex-col gap-5 items-center justify-center">
+    <div className="min-h-screen w-full px-3 py-6 flex items-center justify-center">
       <Card className="w-full max-w-sm">
-        <CardHeader>
+        <CardHeader className="space-y-1">
           <CardTitle className="text-xl flex items-center justify-center">
-            Sign Up
+            Registration
           </CardTitle>
+          <CardDescription className="text-center">
+            The gateway to your professional career
+          </CardDescription>
         </CardHeader>
 
         <CardContent>
-          {/* noValidate so browser doesn't block our Zod validation */}
-          <form onSubmit={handleSignup} noValidate className="flex flex-col gap-6">
-            {/* Name */}
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                name="name"
-                type="text"
-                placeholder="Your name"
-              />
-              {validationErrors.name && (
-                <p className="text-xs text-red-500 mt-1">
-                  {validationErrors.name}
-                </p>
-              )}
+          <form onSubmit={handleSignup} className="flex flex-col gap-4">
+            {/* First/Last name */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="firstName">First name</Label>
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  placeholder="First name"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="lastName">Last name</Label>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  placeholder="Last name"
+                />
+              </div>
             </div>
 
-            {/* Email */}
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -145,48 +166,104 @@ export default function SignUp() {
                 name="email"
                 type="email"
                 placeholder="m@example.com"
+                required
               />
-              {validationErrors.email && (
-                <p className="text-xs text-red-500 mt-1">
-                  {validationErrors.email}
-                </p>
-              )}
             </div>
 
-            {/* Password */}
+            <div className="grid gap-2">
+              <Label htmlFor="studentNumber">Student number</Label>
+                <Input
+                  id="studentNumber"
+                  name="studentNumber"
+                  type="text"
+                  placeholder="Your student number"
+                  required
+                />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="establishment">Establishment</Label>
+              <select
+                id="establishment"
+                name="establishment"
+                defaultValue=""
+                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="" disabled>
+                  Select your establishment
+                </option>
+                {ESTABLISHMENTS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="city">City</Label>
+              <select
+                id="city"
+                name="city"
+                defaultValue=""
+                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="" disabled>
+                  Select your city
+                </option>
+                {CITIES_MOROCCO.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="diploma">Diploma</Label>
+              <select
+                id="diploma"
+                name="diploma"
+                defaultValue=""
+                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="" disabled>
+                  Select your diploma
+                </option>
+                {DIPLOMAS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 name="password"
-                placeholder="password"
                 type="password"
+                placeholder="password"
+                required
               />
-              {validationErrors.password && (
-                <p className="text-xs text-red-500 mt-1">
-                  {validationErrors.password}
-                </p>
-              )}
             </div>
 
-            {/* Confirm password */}
             <div className="grid gap-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">Confirm password</Label>
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
-                placeholder="password"
                 type="password"
+                placeholder="password"
+                required
               />
-              {validationErrors.confirmPassword && (
-                <p className="text-xs text-red-500 mt-1">
-                  {validationErrors.confirmPassword}
-                </p>
-              )}
             </div>
 
-            {globalError && (
-              <p className="text-sm text-red-500">{globalError}</p>
+            {error && (
+              <p className="text-sm text-red-500" role="alert">
+                {error}
+              </p>
             )}
 
             <Button
@@ -194,20 +271,22 @@ export default function SignUp() {
               className="w-full cursor-pointer"
               disabled={loading}
             >
-              {loading ? "Creating..." : "Create Account"}
+              {loading ? "Creating..." : "Registration"}
             </Button>
           </form>
         </CardContent>
-      </Card>
 
-      <div className="flex items-center justify-center gap-1">
-        <CardDescription>Already a user?</CardDescription>
-        <CardAction>
-          <Button variant="link" className="cursor-pointer p-0 h-auto">
-            <Link href="/log-in">Login</Link>
+        <CardFooter className="flex justify-center gap-1 text-sm">
+          <span>Already an account?</span>
+          <Button
+            variant="link"
+            className="cursor-pointer p-0 h-auto"
+            asChild
+          >
+            <Link href="/log-in">Sign in</Link>
           </Button>
-        </CardAction>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

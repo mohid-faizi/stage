@@ -14,14 +14,110 @@ enum Role {
 }
 
 model User {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  name         String?
-  email        String   @unique
-  password     String
-  role         Role     @default(USER)
-  isVerified   Boolean  @default(true)
-  isApproved   Boolean  @default(false)
-  isRejected   Boolean  @default(false)
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Authentication
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+
+  // Basic identity
+  firstName String?
+  lastName  String?
+  name      String?
+
+  // Academic info
+  studentNumber String?
+  establishment String?
+  diploma       String?
+
+  // Account status
+  isVerified    Boolean  @default(false)
+  isApproved    Boolean  @default(false)
+  isRejected    Boolean  @default(false)
+
+  // Verification
+  verificationToken        String?
+  verificationTokenExpires DateTime?
+
+  // Relations
+  profile   Profile?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model Profile {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  userId    String   @unique @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  isProfileApproved Boolean  @default(false)
+  isProfileRejected Boolean  @default(false)
+  phone              String?
+  city               String?
+  linkedin           String?
+  presentation       String?
+  expectedGraduation String?
+  classProjects      String?
+
+  courses      Course[]
+  skills       Skill[]
+  languages    Language[]
+  experiences  Experience[]
+
+  isComplete   Boolean  @default(false)
+  isAvailableForWork Boolean @default(true)
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model Course {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  note      String?
+  profileId String   @db.ObjectId
+  profile   Profile  @relation(fields: [profileId], references: [id])
+
+  @@index([profileId])
+}
+
+model Skill {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  level     String
+  profileId String   @db.ObjectId
+  profile   Profile  @relation(fields: [profileId], references: [id])
+
+  certificateUrl    String?
+  isCertificateValid Boolean @default(false)
+
+  @@index([profileId])
+}
+
+model Language {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  level     String
+  profileId String   @db.ObjectId
+  profile   Profile  @relation(fields: [profileId], references: [id])
+
+  @@index([profileId])
+}
+
+model Experience {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  company   String
+  period    String
+  profileId String   @db.ObjectId
+  profile   Profile  @relation(fields: [profileId], references: [id])
+
+  supervisorName  String?
+  supervisorEmail String?
+
+  @@index([profileId])
 }

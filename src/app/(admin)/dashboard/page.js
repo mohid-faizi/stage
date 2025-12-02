@@ -1,6 +1,8 @@
 // app/page.js
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ThemeToggle } from "../../../components/theme-toggle";
 import {
   Card,
@@ -19,26 +21,31 @@ import {
   CheckSquare,
   FileText,
 } from "lucide-react";
-const stats = [
+
+const initialStats = [
   {
+    key: "totalStudents",
     label: "Total Students",
     value: 0,
     icon: Users,
     circleClass: "bg-sky-500",
   },
   {
+    key: "approvedProfiles",
     label: "Approved Profiles",
     value: 0,
     icon: UserCheck,
     circleClass: "bg-emerald-500",
   },
   {
+    key: "pendingProfiles",
     label: "Pending Profiles",
     value: 0,
     icon: UserX,
     circleClass: "bg-amber-500",
   },
   {
+    key: "aiQueue",
     label: "AI Queue",
     value: 0,
     icon: Bot,
@@ -47,22 +54,66 @@ const stats = [
 ];
 
 const quickActions = [
-  { label: "Review Pending", icon: UserPlus },
-  { label: "AI Verification", icon: Bot },
-  { label: "Approve Users", icon: CheckSquare },
-  { label: "View Reports", icon: FileText },
+  { label: "Review Pending", icon: UserPlus, href: "/manage-students" },
+  { label: "AI Verification", icon: Bot, href: "/ai-verification" },
+  { label: "Approve Users", icon: CheckSquare, href: "/manage-users" },
+  { label: "View Reports", icon: FileText, href: "/reports" },
 ];
 
-const recentActivity = [
-  "0 users pending approval",
-  "0 profiles in AI queue",
-  "0 registered companies",
+const initialRecentActivity = [
+  "0 users pending approval in last 24 hours",
+  "0 profiles in AI queue in last 24 hours",
+  "0 new students registered in last 24 hours",
 ];
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState(initialStats);
+  const [recentActivity, setRecentActivity] = useState(initialRecentActivity);
+  const router = useRouter();
 
-  // const users = await prisma.user.findMany()
-  // console.log("Users found from DB : ",users)
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch("/api/admin/stats", { cache: "no-store" });
+        const json = await res.json();
+
+        if (!res.ok || !json.success) return;
+
+        const {
+          totalStudents,
+          approvedProfiles,
+          pendingProfiles,
+          aiQueue,
+          last24h,
+        } = json.data || {};
+
+        setStats((prev) =>
+          prev.map((item) => {
+            if (item.key === "totalStudents")
+              return { ...item, value: totalStudents ?? item.value };
+            if (item.key === "approvedProfiles")
+              return { ...item, value: approvedProfiles ?? item.value };
+            if (item.key === "pendingProfiles")
+              return { ...item, value: pendingProfiles ?? item.value };
+            if (item.key === "aiQueue")
+              return { ...item, value: aiQueue ?? item.value };
+            return item;
+          })
+        );
+        if (last24h) {
+          setRecentActivity([
+            `${last24h.pendingProfiles ?? 0} users pending approval in last 24 hours`,
+            `${last24h.aiQueue ?? 0} profiles in AI queue in last 24 hours`,
+            `${last24h.newStudents ?? 0} new students registered in last 24 hours`,
+          ]);
+        }
+      } catch (err) {
+        console.error("ADMIN_DASHBOARD_STATS_ERROR", err);
+      }
+    }
+
+    fetchStats();
+  }, []);
 
   return (
     <div  className="min-h-screen bg-background text-foreground bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.16)_0,_transparent_55%)]">
@@ -147,6 +198,7 @@ export default function DashboardPage() {
                       type="button"
                       variant="outline"
                       className="h-9 w-full justify-center gap-2 rounded-full text-xs font-medium"
+                      onClick={() => router.push(action.href)}
                     >
                       <Icon className="h-4 w-4" />
                       <span>{action.label}</span>

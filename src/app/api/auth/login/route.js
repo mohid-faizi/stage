@@ -1,8 +1,8 @@
 // app/api/auth/login/route.js
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { prisma } from "../../../../lib/prisma";
-import { signAccessToken, ACCESS_TOKEN_COOKIE } from "../../../../lib/auth";
+import { prisma } from "@/lib/prisma";
+import { signAccessToken, ACCESS_TOKEN_COOKIE } from "@/lib/auth";
 
 export async function POST(req) {
   try {
@@ -23,6 +23,9 @@ export async function POST(req) {
 
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
+      include: {
+        profile: true, // new relation, Profile?
+      },
     });
 
     if (!user) {
@@ -74,17 +77,19 @@ export async function POST(req) {
       );
     }
 
+    const isProfileCompleted = !!user.profile?.isComplete;
+
     const safeUser = {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
+      isProfileCompleted, // front-end can redirect to /profile if false
     };
 
     // create access token
     const token = signAccessToken(user);
 
-    // send json + set httpOnly cookie
     const res = NextResponse.json(
       {
         success: true,
@@ -94,9 +99,10 @@ export async function POST(req) {
       { status: 200 }
     );
 
+    // set httpOnly cookie
     res.cookies.set(ACCESS_TOKEN_COOKIE, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // in prod use HTTPS
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 7, // 7 days

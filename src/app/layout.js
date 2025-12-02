@@ -13,18 +13,20 @@ export const metadata = {
 };
 
 import { ThemeProvider } from "../components/theme-provider";
-
+import { LoadingOverlayProvider } from "../components/loading-overlay-provider";
 import { Toaster } from "../components/ui/sonner";
 
 export default function Layout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={roboto.className}>
         <ThemeProvider>
+          <LoadingOverlayProvider>
             <main>
               {children}
             </main>
             <Toaster />
+          </LoadingOverlayProvider>
         </ThemeProvider>
       </body>
     </html>

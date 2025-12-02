@@ -23,7 +23,7 @@ const loginSchema = z.object({
   password: z.string().min(8, { message: "Password must be at least 8 characters long" }).max(32, { message: "Password must be at most 32 characters long" })
 });
 
-export default function LogIn() {
+export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   // { email?: string; password?: string }
@@ -61,6 +61,7 @@ export default function LogIn() {
       });
 
       const json = await res.json();
+     
 
       if (!json.success) {
         const status = json.data?.status;
@@ -79,8 +80,21 @@ export default function LogIn() {
         return;
       }
 
+      const user = json.data?.user;
+      const isProfileCompleted = user?.isProfileCompleted;
+      const role = user?.role;
+      console.log("Login response:", user);
+
       toast.success("Logged in successfully.");
-      router.push("/dashboard");
+
+      if (role === "ADMIN") {
+        router.push("/dashboard");
+      } else if (isProfileCompleted) {
+        router.push("/");
+      } else {
+        router.push("/profile"); // onboarding page for regular users
+      }
+
     } catch (err) {
       console.error("LOGIN_CLIENT_ERROR", err);
       toast.error("Something went wrong. Please try again.");

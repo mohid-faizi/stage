@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "../../../components/theme-toggle";
 
@@ -33,21 +34,40 @@ export default function ManageUsersPage() {
   const [loading, setLoading] = useState(false);
   const [approvingId, setApprovingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
 
   // Shared fetch function so we can call it after approve/reject too
   async function fetchUsers() {
     try {
       setLoading(true);
+      const params = new URLSearchParams();
+      params.set("page", String(pagination.page));
+      params.set("limit", String(pagination.limit));
+      params.set("status", statusFilter);
 
-      const res = await fetch("/api/users");
+      const res = await fetch(`/api/users?${params.toString()}`);
       const json = await res.json();
 
       if (!res.ok) {
         throw new Error(json.message || "Failed to load users");
       }
 
-      const apiUsers = json.users || json.data?.users || [];
+      const apiUsers = json.data || json.users || [];
+      const apiPagination = json.pagination || {};
+
       setUsers(apiUsers);
+      setPagination((prev) => ({
+        ...prev,
+        page: apiPagination.page || prev.page,
+        limit: apiPagination.limit || prev.limit,
+        total: apiPagination.total || apiUsers.length,
+        totalPages: apiPagination.totalPages || 1,
+      }));
     } catch (err) {
       console.error("FETCH_USERS_ERROR", err);
       toast.error(err.message || "Failed to load users");
@@ -58,7 +78,7 @@ export default function ManageUsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [statusFilter, pagination.page, pagination.limit]);
 
   // Derive user status text from flags
   function getUserStatus(user) {
@@ -67,18 +87,10 @@ export default function ManageUsersPage() {
     return "Approved";
   }
 
-  function matchesFilter(user) {
-    const status = getUserStatus(user);
-
-    if (statusFilter === "all") return true;
-    if (statusFilter === "approved") return status === "Approved";
-    if (statusFilter === "pending") return status === "Pending approval";
-    if (statusFilter === "rejected") return status === "Rejected";
-
-    return true;
-  }
-
-  const filteredUsers = users.filter(matchesFilter);
+  const currentPage = pagination.page;
+  const total = pagination.total;
+  const totalPages = pagination.totalPages;
+  const startIndex = total > 0 ? (currentPage - 1) * pagination.limit : 0;
 
   async function handleApprove(userId) {
     try {
@@ -157,23 +169,17 @@ export default function ManageUsersPage() {
     return {
       label: "Rejected",
       className:
-        "rounded-full bg-rose-500/15 px-3 py-1 text-[11px] font-medium text-rose-700 " +
-        "dark:bg-rose-500/20 dark:text-rose-300",
+        "rounded-full bg-destructive/15 px-3 py-1 text-[11px] font-medium text-destructive " +
+        "dark:bg-destructive/20 dark:text-destructive",
     };
   }
 
   return (
-    <div
-      className="
-        min-h-screen bg-background
-        bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.16)_0,_transparent_55%)]
-        text-foreground
-      "
-    >
+    <div className="min-h-screen bg-background">
       <main className="flex min-h-screen flex-col">
-        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 md:px-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 md:px-8">
           {/* TOP BAR */}
-          <header className="flex items-start justify-between gap-4">
+          <header className="flex items-start justify-between gap-4 ">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
                 Manage Users
@@ -195,7 +201,10 @@ export default function ManageUsersPage() {
                   type="button"
                   size="sm"
                   variant={statusFilter === f.id ? "default" : "outline"}
-                  onClick={() => setStatusFilter(f.id)}
+                  onClick={() => {
+                    setStatusFilter(f.id);
+                    setPagination((prev) => ({ ...prev, page: 1 }));
+                  }}
                   className="rounded-full px-4 text-xs font-medium shadow-sm"
                 >
                   {f.label}
@@ -205,20 +214,20 @@ export default function ManageUsersPage() {
           </div>
 
           {/* USERS TABLE CARD */}
-          <Card className="mt-2 py-0 overflow-hidden rounded-2xl bg-card/95 shadow-sm">
+          <Card className="mt-2 py-0 overflow-hidden rounded-2xl bg-card shadow-sm">
             <CardContent className="p-0">
               <Table>
-                {/* Proper header row, styled like a blue bar */}
+                {/* Proper header row */}
                 <TableHeader>
-                  <TableRow className="bg-sky-700 text-xs font-semibold">
+                  <TableRow className="text-xs font-semibold bg-blue-600">
                     <TableHead className="w-[32%] pl-6">
                       User
                     </TableHead>
                     <TableHead className="w-[18%]">
-                      Student number
+                      Identifier
                     </TableHead>
                     <TableHead className="w-[24%]">
-                      School
+                      Created At
                     </TableHead>
                     <TableHead className="w-[14%]">
                       Status
@@ -242,7 +251,7 @@ export default function ManageUsersPage() {
                   )}
 
                   {!loading &&
-                    filteredUsers.map((user) => {
+                    users.map((user) => {
                       const badge = getBadgeProps(user);
                       const status = getUserStatus(user);
 
@@ -261,14 +270,16 @@ export default function ManageUsersPage() {
                             </div>
                           </TableCell>
 
-                          {/* Student number (placeholder) */}
+                          {/* Identifier */}
                           <TableCell className="py-4 px-3 align-middle text-sm">
-                            {user.studentNumber || "—"}
+                            {user.id || "—"}
                           </TableCell>
 
-                          {/* School (placeholder) */}
+                          {/* Created At */}
                           <TableCell className="py-4 px-3 align-middle text-sm">
-                            {user.school || "—"}
+                            {user.createdAt
+                              ? new Date(user.createdAt).toLocaleDateString()
+                              : "—"}
                           </TableCell>
 
                           {/* Status badge */}
@@ -288,7 +299,7 @@ export default function ManageUsersPage() {
                               )}
 
                               {status === "Rejected" && (
-                                <span className="text-xs text-rose-500">
+                                <span className="text-xs text-destructive">
                                   Rejected
                                 </span>
                               )}
@@ -334,7 +345,7 @@ export default function ManageUsersPage() {
                       );
                     })}
 
-                  {!loading && filteredUsers.length === 0 && (
+                  {!loading && users.length === 0 && (
                     <TableRow>
                       <TableCell
                         colSpan={5}
@@ -346,6 +357,52 @@ export default function ManageUsersPage() {
                   )}
                 </TableBody>
               </Table>
+
+              {/* Pagination Controls */}
+              {!loading && totalPages > 0 && (
+                <div className="flex items-center justify-between px-6 py-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Showing{" "}
+                    {total > 0 ? startIndex + 1 : 0}
+                    -
+                    {Math.min(startIndex + pagination.limit, total)}{" "}
+                    of {total} users
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setPagination((prev) => ({
+                          ...prev,
+                          page: Math.max(1, currentPage - 1),
+                        }))
+                      }
+                      disabled={currentPage <= 1}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-sm">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setPagination((prev) => ({
+                          ...prev,
+                          page: Math.min(totalPages, currentPage + 1),
+                        }))
+                      }
+                      disabled={currentPage >= totalPages}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
