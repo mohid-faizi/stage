@@ -15,6 +15,7 @@ export const metadata = {
 import { ThemeProvider } from "../components/theme-provider";
 import { LoadingOverlayProvider } from "../components/loading-overlay-provider";
 import { Toaster } from "../components/ui/sonner";
+import { Suspense } from "react";
 
 export default function Layout({ children }) {
   return (
@@ -22,9 +23,11 @@ export default function Layout({ children }) {
       <body className={roboto.className}>
         <ThemeProvider>
           <LoadingOverlayProvider>
-            <main>
-              {children}
-            </main>
+            <Suspense fallback={<div>Loading...</div>}>
+              <main>
+                {children}
+              </main>
+            </Suspense>
             <Toaster />
           </LoadingOverlayProvider>
         </ThemeProvider>
